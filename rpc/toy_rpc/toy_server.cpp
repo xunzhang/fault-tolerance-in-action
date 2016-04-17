@@ -80,6 +80,11 @@ class ToyServer {
     delete server_ptr;
   }
 
+  void foo() {
+    // do job in main thread...
+    std::cout << "main thread job" << std::endl;
+  }
+
  private:
   mutex mtx;
   std::vector<std::thread> thrds;
@@ -89,6 +94,7 @@ class ToyServer {
 
 int main(int argc, char **argv) {
   ToyServer ts;
+  ts.foo();
   return 0;
 }
 
