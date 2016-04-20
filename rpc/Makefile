@@ -6,34 +6,45 @@ endif
 
 BIN_DIR = $(RPC_DIR)/bin
 
-CXX = clang++
-CFLAGS = -Wall -std=c++11 -DHAVE_INTTYPES_H -DHAVE_NETINET_IN_H
+CXX = g++
+CXXFLAGS = -Wall -std=c++11 -DHAVE_INTTYPES_H -DHAVE_NETINET_IN_H
 CPPFLAGS = -I$(RPC_DIR)/toy_rpc/
 LIBS = -lthrift
 
-AUTOSOURCE = $(RPC_DIR)/toy_rpc/divide_types.cpp $(RPC_DIR)/toy_rpc/divide.cpp $(RPC_DIR)/toy_rpc/divide_constants.cpp
-SERVERSOURCE = $(RPC_DIR)/toy_rpc/toy_server.cpp $(AUTOSOURCE)
-CLIENTSOURCE = $(RPC_DIR)/toy_rpc/toy_client.cpp $(AUTOSOURCE)
+AUTOSOURCE = $(wildcard ${RPC_DIR}/toy_rpc/*.cpp)
+TOY_DIR=$(RPC_DIR)/toy_rpc
+SERVERSOURCE = $(TOY_DIR)/toy_server.cpp
+CLIENTSOURCE = $(TOY_DIR)/toy_client.cpp
+
+OBJS = divide_types.o divide_constants.o divide.o
 
 RM = rm -rf
 
-all: prepare toy_server toy_client
+all: prepare ${OBJS} toy_server toy_client
+	@echo 'Successfully Built toy_rpc...'
 
-# rules
 prepare:
-	thrift --gen cpp --out ${RPC_DIR}/toy_rpc ${RPC_DIR}/divide.thrift
+	thrift --gen cpp --out ${TOY_DIR} ${RPC_DIR}/divide.thrift
 	mkdir -p $(BIN_DIR)
 
+divide_types.o: ${TOY_DIR}/divide_types.cpp
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(TOY_DIR)/divide_types.cpp 
+
+divide_constants.o: ${TOY_DIR}/divide_constants.cpp
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(TOY_DIR)/divide_constants.cpp
+
+divide.o: ${TOY_DIR}/divide.cpp
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(TOY_DIR)/divide.cpp
+
 toy_server: $(SERVERSOURCE)
-	$(CXX) $(CPPFLAGS) $(CFLAGS) $(LIBS) -o $(BIN_DIR)/toy_server $^
-	@echo 'Successfully Built in ./bin/toy_server'
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) ${OBJS} -o $(BIN_DIR)/toy_server $(LIBS) $^
 
 toy_client: $(CLIENTSOURCE)
-	$(CXX) $(CPPFLAGS) $(CFLAGS) $(LIBS) -o $(BIN_DIR)/toy_client $^
-	@echo 'Successfully Built in ./bin/toy_client'
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) ${OBJS} -o $(BIN_DIR)/toy_client $(LIBS) $^
 
 .PHONY: clean
 
 clean:
 	$(RM) $(BIN_DIR)
-	${RM} ${RPC_DIR}/toy_rpc/divide*
+	$(RM) $(TOY_DIR)/divide*
+	$(RM) $(RPC_DIR)/*.o
