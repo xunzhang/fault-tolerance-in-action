@@ -3,9 +3,11 @@
 
 #include <string>
 #include <sstream>
+#include <iostream>
 #include <fstream>
 #include <vector>
 #include <stdexcept>
+#include <unordered_map>
 
 #include "util.h"
 
@@ -13,6 +15,7 @@ namespace mapreduce {
 
 using std::string;
 using std::vector;
+using std::unordered_map;
 
 class MapReduce {
  public:
@@ -33,7 +36,9 @@ class MapReduce {
     long chunkSz = sz / static_cast<long>(nMap);
     auto splitFile = [&] (long start, long end, int indx) {
       std::ofstream os;
-      os.open(MapName(indx));
+      string name = MapName(indx);
+      std::cout << "Split " << name << std::endl;
+      os.open(name);
       auto offset = start;
       if(offset != 0) {
         fin.seekg(offset - 1);
@@ -64,13 +69,15 @@ class MapReduce {
 
   template <class K, class V>
   void DoMap(int indx, mapreduce::Map<K, V> && Map) {
-    std::ifstream fin(MapName(indx));
+    string name = MapName(indx);
+    std::ifstream fin(name);
     if(!fin) {
       throw std::runtime_error("open file error in DoMap.\n");
     }
     std::stringstream strStream;
     strStream << fin.rdbuf();
     string text = strStream.str();
+    std::cout << "DoMap: read split " << name << std::endl;
     auto mapRes = Map(text);
     
     // no compression here, naive serialization
@@ -97,6 +104,16 @@ class MapReduce {
 
   template <class K, class V>
   void DoReduce(int JobNumber, mapreduce::Reduce<K, V> && Reduce) {
+    for(int k = 0; k < nMap; ++k) {
+      auto name = ReduceName(k, JobNumber);
+      std::cout << "DoReduce: read " << name << std::endl;
+      std::ifstream f(name);
+      if(!f) {
+        throw std::runtime_error("open file error in DoReduce.\n");
+      }
+      // TODO
+      f.close();
+    }
   }
 
   void Merge() {
@@ -129,10 +146,10 @@ void RunSingle(string file, int nMap, int nReduce,
   MapReduce mr(file, nMap, nReduce);
   mr.Split();
   for(size_t i = 0; i < nMap; ++i) {
-    mr.DoMap(i, nReduce, Map);
+    mr.DoMap<K, V>(i, nReduce, Map);
   }
   for(size_t i = 0; i < nReduce; ++i) {
-    mr.DoReduce(i, nMap, Reduce);
+    mr.DoReduce<K, V>(i, nMap, Reduce);
   }
   mr.Merge();
 }
