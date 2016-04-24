@@ -7,6 +7,8 @@
 #include <fstream>
 #include <vector>
 #include <stdexcept>
+#include <utility>
+#include <algorithm>
 #include <unordered_map>
 
 #include "util.h"
@@ -86,14 +88,12 @@ class MapReduce {
       std::ofstream fout(ReduceName(indx, k));
       fsout.push_back(fout);
     }
-    for(auto & res : mapRes) {
-      for(auto & kv : res) {
-        auto key = std::get<0>(kv);
-        auto value = std::get<1>(kv);
-        auto findx = ihash(key);
-        fsout[findx] << std::to_string(key) 
-            << ":" << std::to_string(value) << '\n';
-      }
+    for(auto & kv : mapRes) {
+      auto key = std::get<0>(kv);
+      auto value = std::get<1>(kv);
+      auto findx = ihash(key);
+      fsout[findx] << std::to_string(key) 
+          << ":" << std::to_string(value) << '\n';
     }
     
     for(auto & fout : fsout) {
@@ -103,7 +103,8 @@ class MapReduce {
   }
 
   template <class K, class V>
-  void DoReduce(int JobNumber, mapreduce::Reduce<K, V> && Reduce) {
+  void DoReduce(int JobNumber, mapreduce::Reduce<V> && Reduce) {
+    unordered_map<K, vector<V>> kvs;
     for(int k = 0; k < nMap; ++k) {
       auto name = ReduceName(k, JobNumber);
       std::cout << "DoReduce: read " << name << std::endl;
@@ -111,9 +112,31 @@ class MapReduce {
       if(!f) {
         throw std::runtime_error("open file error in DoReduce.\n");
       }
-      // TODO
+      string line;
+      std::getline(f, line);
+      auto kv = mapreduce::strSplit(line, ':');
+      K key;
+      V val;
+      std::istringstream is(kv[0]), iss(kv[1]);
+      is >> key; iss >> val;
+      kvs[key].push_back(val);
       f.close();
     }
+    vector<std::pair<K, vector<V>>> kvsList;
+    for(auto & kv : kvs) {
+      kvsList.push_back(std::make_pair(kv.first, kv.second));
+    }
+    auto cmp_lambda = [] () {
+    };
+    std::sort(kvsList.begin(), kvsList.end(), cmp_lambda);
+    auto rname = MergeName(JobNumber);
+    std::ofstream os;
+    os.open(MergeName(JobNumber));
+    for(auto kvpair : kvsList) {
+      V res = Reduce(std::get<1>(kvpair));
+      os << std::get<0>(kvpair) << ":" << res << '\n';
+    }
+    os.close();
   }
 
   void Merge() {
@@ -126,6 +149,10 @@ class MapReduce {
 
   inline string ReduceName(int mindx, int rindx) {
     return MapName(mindx) + "-" + std::to_string(rindx);
+  }
+
+  inline string MergeName(int rindx) {
+    return "mrtmp." + file + "-res-" + std::to_string(rindx);
   }
 
   template <class K>
@@ -142,14 +169,14 @@ class MapReduce {
 
 template <class K, class V>
 void RunSingle(string file, int nMap, int nReduce,
-               mapreduce::Map<K, V> && Map, mapreduce::Reduce<K, V> && Reduce) {
+               mapreduce::Map<K, V> && Map, mapreduce::Reduce<V> && Reduce) {
   MapReduce mr(file, nMap, nReduce);
   mr.Split();
   for(size_t i = 0; i < nMap; ++i) {
-    mr.DoMap<K, V>(i, nReduce, Map);
+    mr.DoMap(i, nReduce, Map);
   }
   for(size_t i = 0; i < nReduce; ++i) {
-    mr.DoReduce<K, V>(i, nMap, Reduce);
+    mr.DoReduce(i, nMap, Reduce);
   }
   mr.Merge();
 }

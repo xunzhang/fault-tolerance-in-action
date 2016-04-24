@@ -29,10 +29,23 @@ using std::mutex;
 using boost::shared_ptr;
 
 template <class K, class V>
-using Map = std::function<std::vector<std::vector<std::pair<K, V>>>(std::string)>;
+using Map = std::function<std::vector<std::pair<K, V>>(std::string)>;
 
-template <class K, class V>
-using Reduce = std::function<std::string(std::string, std::vector<std::vector<std::pair<K, V>>>)>;
+template <class V>
+using Reduce = std::function<V(std::vector<V>)>;
+
+std::vector<std::string> strSplit(const std::string & str,  const char sep) {
+  std::vector<std::string> result;
+  size_t st = 0, en = 0;
+  while(1) {
+    en = str.find(sep, st);
+    auto s = str.substr(st, en - st);
+    if(s.size()) result.push_back(std::move(s));
+    if(en == std::string::npos) break;
+    st = en + 1;
+  }
+  return result;
+}
 
 } // namespace mapreduce
 
