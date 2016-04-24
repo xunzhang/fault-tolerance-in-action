@@ -68,11 +68,11 @@ class MapReduce {
     if(!fin) {
       throw std::runtime_error("open file error in DoMap.\n");
     }
-    // TODO
     std::stringstream strStream;
     strStream << fin.rdbuf();
     string text = strStream.str();
     auto mapRes = Map(text);
+    
     // no compression here, naive serialization
     vector<std::ofstream> fsout;
     for(int k = 0; k < nReduce; ++k) {
@@ -88,6 +88,7 @@ class MapReduce {
             << ":" << std::to_string(value) << '\n';
       }
     }
+    
     for(auto & fout : fsout) {
       fout.close();
     }
