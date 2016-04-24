@@ -122,24 +122,52 @@ class MapReduce {
       kvs[key].push_back(val);
       f.close();
     }
-    vector<std::pair<K, vector<V>>> kvsList;
+    vector<K> keyList;
     for(auto & kv : kvs) {
-      kvsList.push_back(std::make_pair(kv.first, kv.second));
+      keyList.push_back(std::make_pair(kv.first, kv.second));
     }
-    auto cmp_lambda = [] () {
+    auto cmp_lambda = [] (K a, K b) {
+      return a < b;
     };
-    std::sort(kvsList.begin(), kvsList.end(), cmp_lambda);
+    std::sort(keyList.begin(), keyList.end(), cmp_lambda);
     auto rname = MergeName(JobNumber);
     std::ofstream os;
     os.open(MergeName(JobNumber));
-    for(auto kvpair : kvsList) {
-      V res = Reduce(std::get<1>(kvpair));
-      os << std::get<0>(kvpair) << ":" << res << '\n';
+    for(auto key : keyList) {
+      V res = Reduce(kvs[key]);
+      os << key << ":" << res << '\n';
     }
     os.close();
   }
 
+  template <class K, class V>
   void Merge() {
+    unordered_map<string, string> kvs;
+    for(int k = 0; k < nReduce; ++k) {
+      auto name = MergeName(k);
+      std::ifstream fin(name);
+      if(!fin) {
+        throw std::runtime_error("open file error in Merge.\n");
+      }
+      std::cout << "Merge: read " << name << std::endl;
+      string line;
+      while(std::getline(fin, line)) {
+        auto kv = mapreduce::strSplit(line, ':'); 
+        kvs[kv[0]] = kv[1];
+      }
+      fin.close();
+    }
+    vector<string> keyList;
+    for(auto & kv : kvs) {
+      keyList.push_back(kv.first);
+    }
+    std::sort(keyList.begin(), keyList.end());
+    std::ofstream os;
+    os.open("mrtmp." + file);
+    for(auto & key : keyList) {
+      os << key << ":" << kvs[key] << '\n';
+    }
+    os.close();
   }
 
  private:
@@ -178,7 +206,7 @@ void RunSingle(string file, int nMap, int nReduce,
   for(size_t i = 0; i < nReduce; ++i) {
     mr.DoReduce(i, nMap, Reduce);
   }
-  mr.Merge();
+  mr.Merge<K, V>();
 }
 
 } // namespace mapreduce
