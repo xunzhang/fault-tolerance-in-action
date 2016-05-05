@@ -7,12 +7,15 @@ endif
 BIN_DIR = $(RPC_DIR)/bin
 
 CXX = g++
-CXXFLAGS = -Wall -std=c++11 -DHAVE_INTTYPES_H -DHAVE_NETINET_IN_H
-CPPFLAGS = -I$(RPC_DIR)/toy_rpc/
-LIBS = -lpthread -lthrift
+
+CXXFLAGS += -Wall -std=c++11 -DHAVE_INTTYPES_H -DHAVE_NETINET_IN_H
+CPPFLAGS += -I$(RPC_DIR)/toy_rpc/ -I/usr/local/include
+
+LDFLAGS += -L/usr/local/lib
+LIBS += -lpthread -lthrift
 
 AUTOSOURCE = $(wildcard ${RPC_DIR}/toy_rpc/*.cpp)
-TOY_DIR=$(RPC_DIR)/toy_rpc
+TOY_DIR = $(RPC_DIR)/toy_rpc
 SERVERSOURCE = $(TOY_DIR)/toy_server.cpp
 CLIENTSOURCE = $(TOY_DIR)/toy_client.cpp
 
@@ -37,10 +40,10 @@ divide.o: ${TOY_DIR}/divide.cpp
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(TOY_DIR)/divide.cpp
 
 toy_server: $(SERVERSOURCE)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) ${OBJS} -o $(BIN_DIR)/toy_server $^ $(LIBS)
+	$(CXX) $(LDFLAGS) $(CPPFLAGS) $(CXXFLAGS) ${OBJS} -o $(BIN_DIR)/toy_server $^ $(LIBS)
 
 toy_client: $(CLIENTSOURCE)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) ${OBJS} -o $(BIN_DIR)/toy_client $^ $(LIBS)
+	$(CXX) $(LDFLAGS) $(CPPFLAGS) $(CXXFLAGS) ${OBJS} -o $(BIN_DIR)/toy_client $^ $(LIBS)
 
 .PHONY: clean
 
