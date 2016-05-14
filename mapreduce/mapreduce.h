@@ -70,7 +70,7 @@ class MapReduce {
   }
 
   template <class K, class V>
-  void DoMap(int indx, mapreduce::Map<K, V> && Map) {
+  void DoMap(int indx, mapreduce::Map<K, V> & Map) {
     string name = MapName(indx);
     std::ifstream fin(name);
     if(!fin) {
@@ -86,14 +86,13 @@ class MapReduce {
     vector<std::ofstream> fsout;
     for(int k = 0; k < nReduce; ++k) {
       std::ofstream fout(ReduceName(indx, k));
-      fsout.push_back(fout);
+      fsout.push_back(std::move(fout));
     }
     for(auto & kv : mapRes) {
       auto key = std::get<0>(kv);
       auto value = std::get<1>(kv);
       auto findx = ihash(key);
-      fsout[findx] << std::to_string(key) 
-          << ":" << std::to_string(value) << '\n';
+      fsout[findx] << key << ":" << value << '\n';
     }
     
     for(auto & fout : fsout) {
@@ -103,7 +102,7 @@ class MapReduce {
   }
 
   template <class K, class V>
-  void DoReduce(int JobNumber, mapreduce::Reduce<V> && Reduce) {
+  void DoReduce(int JobNumber, mapreduce::Reduce<V> & Reduce) {
     unordered_map<K, vector<V>> kvs;
     for(int k = 0; k < nMap; ++k) {
       auto name = ReduceName(k, JobNumber);
@@ -124,7 +123,7 @@ class MapReduce {
     }
     vector<K> keyList;
     for(auto & kv : kvs) {
-      keyList.push_back(std::make_pair(kv.first, kv.second));
+      keyList.push_back(kv.first);
     }
     auto cmp_lambda = [] (K a, K b) {
       return a < b;
@@ -201,10 +200,10 @@ void RunSingle(string file, int nMap, int nReduce,
   MapReduce mr(file, nMap, nReduce);
   mr.Split();
   for(size_t i = 0; i < nMap; ++i) {
-    mr.DoMap(i, nReduce, Map);
+    mr.DoMap(i, Map);
   }
   for(size_t i = 0; i < nReduce; ++i) {
-    mr.DoReduce(i, nMap, Reduce);
+    mr.DoReduce<K, V>(i, Reduce);
   }
   mr.Merge<K, V>();
 }

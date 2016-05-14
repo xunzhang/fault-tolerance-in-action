@@ -29,10 +29,10 @@ using std::mutex;
 using boost::shared_ptr;
 
 template <class K, class V>
-using Map = std::function<std::vector<std::pair<K, V>>(std::string)>;
+using Map = std::function<std::vector<std::pair<K, V>>(const std::string &)>;
 
 template <class V>
-using Reduce = std::function<V(std::vector<V>)>;
+using Reduce = std::function<V(const std::vector<V> &)>;
 
 std::vector<std::string> strSplit(const std::string & str,  const char sep) {
   std::vector<std::string> result;
