@@ -1,0 +1,11 @@
+rpc/bin
+rpc/*.o
+rpc/*.go
+rpc/toy_rpc/divide.*
+rpc/toy_rpc/divide_constants.*
+rpc/toy_rpc/divide_server.skeleton.*
+rpc/toy_rpc/divide_types.*
+mapreduce/bin
+mapreduce/*.cc
+mapreduce/*.sh
+mapreduce/*.gch
