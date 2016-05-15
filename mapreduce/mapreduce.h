@@ -189,9 +189,9 @@ class MapReduce {
   }
 
  private:
+  string file;
   int nMap;
   int nReduce;
-  string file;
   string MasterAddress;
 }; // class MapReduce
 
