@@ -9,7 +9,7 @@ BIN_DIR = $(MR_DIR)/bin
 CXX = g++
 CXXFLAGS += -Wall -std=c++11
 
-LIBS := $(LIBS) -lgflags -lglog -lboost_regex
+LIBS := $(LIBS) -lgflags -lboost_regex
 
 TEST_SRC = $(MR_DIR)/wc_test.cpp
 

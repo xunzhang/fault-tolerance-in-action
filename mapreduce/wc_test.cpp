@@ -7,7 +7,6 @@
 #include <boost/algorithm/string/regex.hpp>
 
 #include <google/gflags.h>
-#include <glog/logging.h>
 
 #include "mapreduce.h"
 #include "util.h"
@@ -46,7 +45,6 @@ DEFINE_int32(nreduce, 2, "number of reducers\n");
 
 int main(int argc, char *argv[])
 {
-  google::InitGoogleLogging(argv[0]);
   google::SetUsageMessage("[options]\n\t--method\n\t--nmap\n\t--nreduce\n\t--file\n");
   google::ParseCommandLineFlags(&argc, &argv, true);
   if(FLAGS_method == "sequential") {
