@@ -10,6 +10,7 @@
 #include <utility>
 #include <algorithm>
 #include <unordered_map>
+#include <cstddef>
 
 #include "util.h"
 
@@ -33,7 +34,7 @@ class MapReduce {
     if(!fin) {
       throw std::runtime_error("open file error in Split.\n");
     }
-    std::ifstream f(file);
+    std::ifstream f(file, std::ios::ate);
     long sz = f.tellg();
     long chunkSz = sz / static_cast<long>(nMap);
     auto splitFile = [&] (long start, long end, int indx) {
@@ -83,19 +84,18 @@ class MapReduce {
     auto mapRes = Map(text);
     
     // no compression here, naive serialization
-    vector<std::ofstream> fsout;
+    vector<std::ofstream> fstreams;
     for(int k = 0; k < nReduce; ++k) {
-      std::ofstream fout(ReduceName(indx, k));
-      fsout.push_back(std::move(fout));
+      fstreams.emplace_back(std::ofstream{ReduceName(indx, k)});
     }
     for(auto & kv : mapRes) {
       auto key = std::get<0>(kv);
       auto value = std::get<1>(kv);
-      auto findx = ihash(key);
-      fsout[findx] << key << ":" << value << '\n';
+      size_t findx = ihash(key) % nReduce;
+      fstreams[findx] << key << ':' << value << '\n';
     }
     
-    for(auto & fout : fsout) {
+    for(auto & fout : fstreams) {
       fout.close();
     }
     fin.close();
@@ -112,13 +112,14 @@ class MapReduce {
         throw std::runtime_error("open file error in DoReduce.\n");
       }
       string line;
-      std::getline(f, line);
-      auto kv = mapreduce::strSplit(line, ':');
-      K key;
-      V val;
-      std::istringstream is(kv[0]), iss(kv[1]);
-      is >> key; iss >> val;
-      kvs[key].push_back(val);
+      while(std::getline(f, line)) {
+        auto kv = mapreduce::strSplit(line, ':');
+        K key;
+        V val;
+        std::istringstream is(kv[0]), iss(kv[1]);
+        is >> key; iss >> val;
+        kvs[key].push_back(val);
+      }
       f.close();
     }
     vector<K> keyList;
