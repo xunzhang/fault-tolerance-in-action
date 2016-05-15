@@ -27,4 +27,4 @@ test_wc: $(TEST_SRC)
 
 clean:
 	$(RM) $(BIN_DIR)
-	$(RM) mrtmp*
+	$(RM) mrtmp.kjv12*

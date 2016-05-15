@@ -27,7 +27,9 @@ class MapReduce {
       : file(_file),
         nMap(nmap),
         nReduce(nreduce),
-        MasterAddress(master) {}
+        MasterAddress(master) {
+    fileSuffix = mapreduce::strSplit(_file, '/').back();
+  }
 
   void Split() {
     std::ifstream fin(file);
@@ -163,16 +165,18 @@ class MapReduce {
     }
     std::sort(keyList.begin(), keyList.end());
     std::ofstream os;
-    os.open("mrtmp." + file);
+    string resultFile = "mrtmp." + fileSuffix;
+    os.open(resultFile);
     for(auto & key : keyList) {
       os << key << ":" << kvs[key] << '\n';
     }
+    std::cout << "Result generated in: " << resultFile << std::endl;
     os.close();
   }
 
  private:
   inline string MapName(int indx) {
-    return "mrtmp." + file + "-" + std::to_string(indx);
+    return "mrtmp." + fileSuffix + "-" + std::to_string(indx);
   }
 
   inline string ReduceName(int mindx, int rindx) {
@@ -180,7 +184,7 @@ class MapReduce {
   }
 
   inline string MergeName(int rindx) {
-    return "mrtmp." + file + "-res-" + std::to_string(rindx);
+    return "mrtmp." + fileSuffix + "-res-" + std::to_string(rindx);
   }
 
   template <class K>
@@ -193,6 +197,7 @@ class MapReduce {
   int nMap;
   int nReduce;
   string MasterAddress;
+  string fileSuffix;
 }; // class MapReduce
 
 template <class K, class V>
