@@ -1,4 +1,4 @@
-# Makefile
+# Makefile for rpc folder
 
 ifndef RPC_DIR
 RPC_DIR = .
