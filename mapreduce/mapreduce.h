@@ -19,6 +19,20 @@ namespace mapreduce {
 using std::string;
 using std::vector;
 using std::unordered_map;
+  
+string MapName(const string & file, int indx) {
+  string fileSuffix = mapreduce::strSplit(file, '/').back();
+  return "mrtmp." + fileSuffix + "-" + std::to_string(indx);
+}
+
+string ReduceName(const string & file, int mindx, int rindx) {
+  return MapName(file, mindx) + "-" + std::to_string(rindx);
+}
+
+string MergeName(const string & file, int rindx) {
+  string fileSuffix = mapreduce::strSplit(file, '/').back();
+  return "mrtmp." + fileSuffix + "-res-" + std::to_string(rindx);
+}
 
 class MapReduce {
  public:
@@ -41,7 +55,7 @@ class MapReduce {
     long chunkSz = sz / static_cast<long>(nMap);
     auto splitFile = [&] (long start, long end, int indx) {
       std::ofstream os;
-      string name = MapName(indx);
+      string name = MapName(file, indx);
       std::cout << "Split " << name << std::endl;
       os.open(name);
       auto offset = start;
@@ -74,7 +88,7 @@ class MapReduce {
 
   template <class K, class V>
   void DoMap(int indx, mapreduce::Map<K, V> & Map) {
-    string name = MapName(indx);
+    string name = MapName(file, indx);
     std::ifstream fin(name);
     if(!fin) {
       throw std::runtime_error("open file error in DoMap.\n");
@@ -88,7 +102,7 @@ class MapReduce {
     // no compression here, naive serialization
     vector<std::ofstream> fstreams;
     for(int k = 0; k < nReduce; ++k) {
-      fstreams.emplace_back(std::ofstream{ReduceName(indx, k)});
+      fstreams.emplace_back(std::ofstream{ReduceName(file, indx, k)});
     }
     for(auto & kv : mapRes) {
       auto key = std::get<0>(kv);
@@ -107,7 +121,7 @@ class MapReduce {
   void DoReduce(int JobNumber, mapreduce::Reduce<V> & Reduce) {
     unordered_map<K, vector<V>> kvs;
     for(int k = 0; k < nMap; ++k) {
-      auto name = ReduceName(k, JobNumber);
+      auto name = ReduceName(file, k, JobNumber);
       std::cout << "DoReduce: read " << name << std::endl;
       std::ifstream f(name);
       if(!f) {
@@ -132,9 +146,9 @@ class MapReduce {
       return a < b;
     };
     std::sort(keyList.begin(), keyList.end(), cmp_lambda);
-    auto rname = MergeName(JobNumber);
+    auto rname = MergeName(file, JobNumber);
     std::ofstream os;
-    os.open(MergeName(JobNumber));
+    os.open(MergeName(file, JobNumber));
     for(auto key : keyList) {
       V res = Reduce(kvs[key]);
       os << key << ":" << res << '\n';
@@ -146,7 +160,7 @@ class MapReduce {
   void Merge() {
     unordered_map<string, string> kvs;
     for(int k = 0; k < nReduce; ++k) {
-      auto name = MergeName(k);
+      auto name = MergeName(file, k);
       std::ifstream fin(name);
       if(!fin) {
         throw std::runtime_error("open file error in Merge.\n");
@@ -172,19 +186,6 @@ class MapReduce {
     }
     std::cout << "Result generated in: " << resultFile << std::endl;
     os.close();
-  }
-
- private:
-  inline string MapName(int indx) {
-    return "mrtmp." + fileSuffix + "-" + std::to_string(indx);
-  }
-
-  inline string ReduceName(int mindx, int rindx) {
-    return MapName(mindx) + "-" + std::to_string(rindx);
-  }
-
-  inline string MergeName(int rindx) {
-    return "mrtmp." + fileSuffix + "-res-" + std::to_string(rindx);
   }
 
   template <class K>
