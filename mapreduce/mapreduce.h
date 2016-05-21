@@ -34,6 +34,81 @@ string MergeName(const string & file, int rindx) {
   return "mrtmp." + fileSuffix + "-res-" + std::to_string(rindx);
 }
 
+template <class K>
+inline std::size_t ihash(K key) {
+  return  std::hash<K>()(key);
+}
+
+template <class K, class V>
+void DoMap(int indx, const string & file, int nReduce, mapreduce::Map<K, V> & Map) {
+  string name = MapName(file, indx);
+  std::ifstream fin(name);
+  if(!fin) {
+    throw std::runtime_error("open file error in DoMap.\n");
+  }
+  std::stringstream strStream;
+  strStream << fin.rdbuf();
+  string text = strStream.str();
+  std::cout << "DoMap: read split " << name << std::endl;
+  auto mapRes = Map(text);
+
+  // no compression here, naive serialization
+  vector<std::ofstream> fstreams;
+  for(int k = 0; k < nReduce; ++k) {
+    fstreams.emplace_back(std::ofstream{ReduceName(file, indx, k)});
+  }
+  for(auto & kv : mapRes) {
+    auto key = std::get<0>(kv);
+    auto value = std::get<1>(kv);
+    size_t findx = ihash(key) % nReduce;
+    fstreams[findx] << key << ':' << value << '\n';
+  }
+
+  for(auto & fout : fstreams) {
+    fout.close();
+  }
+  fin.close();
+}
+
+template <class K, class V>
+void DoReduce(int JobNumber, const string & file, int nMap, mapreduce::Reduce<V> & Reduce) {
+  unordered_map<K, vector<V>> kvs;
+  for(int k = 0; k < nMap; ++k) {
+    auto name = ReduceName(file, k, JobNumber);
+    std::cout << "DoReduce: read " << name << std::endl;
+    std::ifstream f(name);
+    if(!f) {
+      throw std::runtime_error("open file error in DoReduce.\n");
+    }
+    string line;
+    while(std::getline(f, line)) {
+      auto kv = mapreduce::strSplit(line, ':');
+      K key;
+      V val;
+      std::istringstream is(kv[0]), iss(kv[1]);
+      is >> key; iss >> val;
+      kvs[key].push_back(val);
+    }
+    f.close();
+  }
+  vector<K> keyList;
+  for(auto & kv : kvs) {
+    keyList.push_back(kv.first);
+  }
+  auto cmp_lambda = [] (K a, K b) {
+    return a < b;
+  };
+  std::sort(keyList.begin(), keyList.end(), cmp_lambda);
+  auto rname = MergeName(file, JobNumber);
+  std::ofstream os;
+  os.open(MergeName(file, JobNumber));
+  for(auto key : keyList) {
+    V res = Reduce(kvs[key]);
+    os << key << ":" << res << '\n';
+  }
+  os.close();
+}
+
 class MapReduce {
  public:
   MapReduce(string _file,
@@ -87,76 +162,6 @@ class MapReduce {
   }
 
   template <class K, class V>
-  void DoMap(int indx, mapreduce::Map<K, V> & Map) {
-    string name = MapName(file, indx);
-    std::ifstream fin(name);
-    if(!fin) {
-      throw std::runtime_error("open file error in DoMap.\n");
-    }
-    std::stringstream strStream;
-    strStream << fin.rdbuf();
-    string text = strStream.str();
-    std::cout << "DoMap: read split " << name << std::endl;
-    auto mapRes = Map(text);
-    
-    // no compression here, naive serialization
-    vector<std::ofstream> fstreams;
-    for(int k = 0; k < nReduce; ++k) {
-      fstreams.emplace_back(std::ofstream{ReduceName(file, indx, k)});
-    }
-    for(auto & kv : mapRes) {
-      auto key = std::get<0>(kv);
-      auto value = std::get<1>(kv);
-      size_t findx = ihash(key) % nReduce;
-      fstreams[findx] << key << ':' << value << '\n';
-    }
-    
-    for(auto & fout : fstreams) {
-      fout.close();
-    }
-    fin.close();
-  }
-
-  template <class K, class V>
-  void DoReduce(int JobNumber, mapreduce::Reduce<V> & Reduce) {
-    unordered_map<K, vector<V>> kvs;
-    for(int k = 0; k < nMap; ++k) {
-      auto name = ReduceName(file, k, JobNumber);
-      std::cout << "DoReduce: read " << name << std::endl;
-      std::ifstream f(name);
-      if(!f) {
-        throw std::runtime_error("open file error in DoReduce.\n");
-      }
-      string line;
-      while(std::getline(f, line)) {
-        auto kv = mapreduce::strSplit(line, ':');
-        K key;
-        V val;
-        std::istringstream is(kv[0]), iss(kv[1]);
-        is >> key; iss >> val;
-        kvs[key].push_back(val);
-      }
-      f.close();
-    }
-    vector<K> keyList;
-    for(auto & kv : kvs) {
-      keyList.push_back(kv.first);
-    }
-    auto cmp_lambda = [] (K a, K b) {
-      return a < b;
-    };
-    std::sort(keyList.begin(), keyList.end(), cmp_lambda);
-    auto rname = MergeName(file, JobNumber);
-    std::ofstream os;
-    os.open(MergeName(file, JobNumber));
-    for(auto key : keyList) {
-      V res = Reduce(kvs[key]);
-      os << key << ":" << res << '\n';
-    }
-    os.close();
-  }
-
-  template <class K, class V>
   void Merge() {
     unordered_map<string, string> kvs;
     for(int k = 0; k < nReduce; ++k) {
@@ -188,11 +193,6 @@ class MapReduce {
     os.close();
   }
 
-  template <class K>
-  inline std::size_t ihash(K key) {
-    return  std::hash<K>()(key);
-  }
-
  private:
   string file;
   int nMap;
@@ -207,10 +207,10 @@ void RunSingle(string file, int nMap, int nReduce,
   MapReduce mr(file, nMap, nReduce);
   mr.Split();
   for(size_t i = 0; i < nMap; ++i) {
-    mr.DoMap(i, Map);
+    DoMap(i, file, nReduce, Map);
   }
   for(size_t i = 0; i < nReduce; ++i) {
-    mr.DoReduce<K, V>(i, Reduce);
+    DoReduce<K, V>(i, file, nMap, Reduce);
   }
   mr.Merge<K, V>();
 }
