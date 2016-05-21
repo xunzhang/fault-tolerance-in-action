@@ -116,7 +116,7 @@ class MapReduce {
       : file(_file),
         nMap(nmap),
         nReduce(nreduce),
-        MasterAddress(master) {
+        MasterAddr(master) {
     fileSuffix = mapreduce::strSplit(_file, '/').back();
   }
 
@@ -193,12 +193,32 @@ class MapReduce {
     os.close();
   }
 
+ public:
+  template <class K, class V>
+  void Run() {
+    std::cout << "Run mapreduce job " << MasterAddr << " " << file << std::endl;
+    Split();
+    stats = RunMaster();
+    Merge<K, V>();
+    // CleanupRegister();
+    std::cout << MasterAddr << ": Mapreduce done" << std::endl;
+    // mr.DoneChannel <- true
+  }
+
+ private:
+  // master logic
+  vector<int> RunMaster() {}
+
+  // master logic
+  vector<int> KillWorkers() {}
+
  private:
   string file;
   int nMap;
   int nReduce;
-  string MasterAddress;
+  string MasterAddr;
   string fileSuffix;
+  vector<int> stats;
 }; // class MapReduce
 
 template <class K, class V>

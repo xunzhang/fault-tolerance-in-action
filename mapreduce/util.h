@@ -47,6 +47,26 @@ std::vector<std::string> strSplit(const std::string & str,  const char sep) {
   return result;
 }
 
+using JobType = std::string;
+
+struct DoJobArgs {
+  std::string File;
+  JobType Operation;
+  int JobNumber; // this job's number
+  int NumOtherPhase; // total number of jobs in other phase (map or reduce)
+};
+
+struct DoJobReply {
+};
+
+void callWorkerShutdown() {}
+
+void callWorkerDoJob() {}
+
+void callMapReduceRegister() {}
+
+void callMapReduceShutdown() {}
+
 } // namespace mapreduce
 
 #endif
