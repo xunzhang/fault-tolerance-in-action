@@ -16,7 +16,7 @@
 #include <thrift/transport/TServerSocket.h>
 #include <thrift/transport/TBufferTransports.h>
 
-#include <google/gflags.h>
+#include <gflags/gflags.h>
 
 namespace mapreduce {
 

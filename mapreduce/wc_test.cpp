@@ -6,7 +6,7 @@
 #include <boost/regex.hpp>
 #include <boost/algorithm/string/regex.hpp>
 
-#include <google/gflags.h>
+#include <gflags/gflags.h>
 
 #include "mapreduce.h"
 #include "util.h"
