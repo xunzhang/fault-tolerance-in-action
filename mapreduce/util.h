@@ -2,7 +2,7 @@
 #define UTIL_H
 
 #include <sys/stat.h>
-
+#include <cstdio>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -45,6 +45,15 @@ std::vector<std::string> strSplit(const std::string & str,  const char sep) {
     st = en + 1;
   }
   return result;
+}
+
+template <typename... T>
+std::string stringFormat(const std::string &fmt, T... vs) {
+  char b;
+  unsigned required = std::snprintf(&b, 0, fmt.c_str(), vs...) + 1;
+  char bytes[required];
+  std::snprintf(bytes, required, fmt.c_str(), vs...);
+  return std::string(bytes);
 }
 
 using JobType = std::string;

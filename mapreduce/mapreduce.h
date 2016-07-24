@@ -11,14 +11,30 @@
 #include <algorithm>
 #include <unordered_map>
 #include <cstddef>
+#include <thread>
+#include <mutex>
+
+#include <thrift/protocol/TBinaryProtocol.h>
+#include <thrift/server/TSimpleServer.h>
+#include <thrift/transport/TServerSocket.h>
+#include <thrift/transport/TBufferTransports.h>
 
 #include "util.h"
+#include "chan.h"
 
 namespace mapreduce {
 
+using namespace ::apache::thrift;
+using namespace ::apache::thrift::protocol;
+using namespace ::apache::thrift::transport;
+using namespace ::apache::thrift::server;
 using std::string;
 using std::vector;
 using std::unordered_map;
+using std::thread;
+using cpp::channel;
+using std::mutex;
+using boost::shared_ptr;
   
 string MapName(const string & file, int indx) {
   string fileSuffix = mapreduce::strSplit(file, '/').back();
@@ -36,7 +52,7 @@ string MergeName(const string & file, int rindx) {
 
 template <class K>
 inline std::size_t ihash(K key) {
-  return  std::hash<K>()(key);
+  return std::hash<K>()(key);
 }
 
 template <class K, class V>
@@ -111,13 +127,30 @@ void DoReduce(int JobNumber, const string & file, int nMap, mapreduce::Reduce<V>
 
 class MapReduce {
  public:
+  MapReduce(string _file, int nmap, int nreduce) 
+      : file(_file),
+        nMap(nmap),
+        nReduce(nreduce) {
+    fileSuffix = mapreduce::strSplit(_file, '/').back();
+  }
+  
   MapReduce(string _file,
-            int nmap, int nreduce, string master = "") 
+            int nmap, int nreduce, string master)
       : file(_file),
         nMap(nmap),
         nReduce(nreduce),
         MasterAddr(master) {
     fileSuffix = mapreduce::strSplit(_file, '/').back();
+    startRegisterServer();
+  }
+
+  ~MapReduce() {
+    if(register_handler.size() == 1) {
+      for(auto & thrd : register_handler) {
+        thrd.join();
+      }
+      delete registerServerPtr;
+    }
   }
 
   void Split() {
@@ -194,6 +227,7 @@ class MapReduce {
   }
 
  public:
+  // Run jobs in parallel, assuming a shared file system such as nfs
   template <class K, class V>
   void Run() {
     std::cout << "Run mapreduce job " << MasterAddr << " " << file << std::endl;
@@ -206,8 +240,49 @@ class MapReduce {
   }
 
  private:
+  void startRegisterServer() {
+    auto register_handler = [&] () {
+      int port = str_split(masterAddr);
+      shared_ptr<MapReduceServiceHandler> handler(new MapReduceServiceHandler(registerChan));
+      shared_ptr<TProcessor> processor(new MapReduceServiceProcessor(handler))
+      shared_ptr<TServerTransport> serverTransport(new TServerSocket(port));
+      shared_ptr<TTransportFactory> transportFactory(new TBufferedTransportFactory());
+      shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());
+      registerServerPtr = new TSimpleServer(processor, serverTransport, transportFactory, protocolFactory);
+      registerServerPtr->serve();
+    };
+    registerServerThrd.push_back(thread(register_handler));
+  }
+
   // master logic
-  vector<int> RunMaster() {}
+  vector<int> RunMaster() {
+    // hand out map jobs
+    auto map_handler = [&] (int id) {
+      while(1) {
+        string worker;
+        //DoRpc(DoMap, worker, id, file, nReduce, Mapper);
+        return;
+      }
+    };
+    for(int i = 0; i < nMap; ++i) {
+      workers.push_back(thread(map_handler, i));
+    }
+    // wait until all done
+    for(auto & worker : workers) worker.join();
+    std::cout << "All map jobs done!" << std::endl;
+
+    auto reduce_handler = [&] (int id) {
+    };
+    // hand out reduce jobs
+    for(int i = 0; i < nReduce; ++i) {
+      workers.push_back(thread(reduce_handler, i));
+    }
+    // wait until all done
+    for(auto & worker : workers) worker.join();
+    std::cout << "All reduce jobs done!" << std::endl;
+
+    // kill workers
+  }
 
   // master logic
   vector<int> KillWorkers() {}
@@ -219,6 +294,14 @@ class MapReduce {
   string MasterAddr;
   string fileSuffix;
   vector<int> stats;
+ 
+ private: // for parallel use
+  TSimpleServer *registerServerPtr;
+  vector<thread> registerServerThrd;
+  vector<thread> workersThrds;
+  unordered_map<string, string> workers;
+  channel<string> registerChan;
+  channel<string> freeChan;
 }; // class MapReduce
 
 template <class K, class V>
