@@ -1,7 +1,15 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#include <unistd.h>
+#include <errno.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
+#include <arpa/inet.h>
+#include <stdio.h>
+
+#include <cstdlib>
+#include <ctime>
 #include <cstdio>
 #include <mutex>
 #include <string>
@@ -54,6 +62,29 @@ std::string stringFormat(const std::string &fmt, T... vs) {
   char bytes[required];
   std::snprintf(bytes, required, fmt.c_str(), vs...);
   return std::string(bytes);
+}
+
+int getFreePort(int a, int b) {
+  auto isFreePort = [] (int port) {
+    struct sockaddr_in serv_addr;
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    bzero((char *) &serv_addr, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr = INADDR_ANY;
+    serv_addr.sin_port = htons(port);
+    if(bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+      return false;
+    }
+    close(sockfd);
+    return true;
+  };
+  std::srand(std::time(0));
+  while(1) {
+    int port = (std::rand() % (b - a)) + a + 1;
+    if(isFreePort(port)) {
+      return port;
+    }
+  }
 }
 
 using JobType = std::string;

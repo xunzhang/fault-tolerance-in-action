@@ -145,8 +145,8 @@ class MapReduce {
   }
 
   ~MapReduce() {
-    if(register_handler.size() == 1) {
-      for(auto & thrd : register_handler) {
+    if(registerServerThrd.size() == 1) {
+      for(auto & thrd : registerServerThrd) {
         thrd.join();
       }
       delete registerServerPtr;

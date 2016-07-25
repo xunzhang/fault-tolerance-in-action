@@ -7,7 +7,7 @@ struct DoJobArgs {
   1:string File,
   2:string Operation,
   3:i32 JobNumber, // this job's number
-  4:i32 NumOtherPhase // total number of jobs in other phase (map or reduce
+  4:i32 NumOtherPhase // total number of jobs in other phase (map or reduce)
 }
 
 struct DoJobReply {
@@ -15,6 +15,6 @@ struct DoJobReply {
 }
 
 service WorkerService {
-  bool Shutdown(1:ShutdownReply res),
-  bool DoJob(1:DoJobArgs arg, 2:DoJobReply res)
+  bool DoJob(1:DoJobArgs arg, 2:DoJobReply res),
+  bool Shutdown(1:ShutdownReply res)
 }

@@ -1,6 +1,7 @@
 #ifndef WORKER_H
 #define WORKER_H
 
+#include <unistd.h>
 #include <vector>
 #include <string>
 #include <iostream>
@@ -32,9 +33,9 @@ class Worker {
     reducer = _reducer;
   }
   inline int GetnRPC() { return nRPC; }
-  inline void DecrnRPC() { nRPC--; }
+  inline void SetnRPC(int k) { nRPC = k; }
   inline int GetnJobs() { return nJobs; }
-  inline void IncrnJobs() { nJobs++; }
+  inline void SetnJobs(int k) { nJobs = k; }
 
  private:
   string name;
@@ -46,7 +47,7 @@ class Worker {
 
 void RunWorker(const string & masterAddr, const string & me,
                mapreduce::Map<K, V> & mapFunc, mapreduce::Reduce<V> & reduceFunc,
-               int nPRC_) {
+               int nPRC) {
   std::cout << "RunWorker " << me << std::endl;
   Worker wk(me, mapFunc, reduceFunc, nRPC);
 
@@ -56,23 +57,36 @@ void RunWorker(const string & masterAddr, const string & me,
   shared_ptr<TTransport> transport(new TBufferedTransport(socket));
   shared_ptr<TProtocol> protocol(new TBinaryProtocol(transport));
   MapReduceServiceClient registerClient(protocol);
-  
-  vector<thread> service_thrds;
-  auto _lambda_StartDoJobServer = [&] () {
-    int port = mapreduce::getFreePort();
-    // TODO
+  TSimpleServer *registerServerPtr;
+  auto dojob_handler = [&] () {
+    int port = std::stoi(mapreduce::strSplit(me, ':').back()); 
+    shared_ptr<WorkerServiceHandler> handler(new WorkerServiceHandler(nRPC));
+    shared_ptr<TProcessor> processor(new WorkerServiceProcessor(handler));
+    shared_ptr<TServerTransport> serverTransport(new TServerSocket(port));
+    shared_ptr<TTransportFactory> transportFactory(new TBufferedTransportFactory());
+    shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());
+    registerServerPtr = new TSimpleServer(processor,
+                                          serverTransport,
+                                          transportFactory,
+                                          protocolFactory);
+    registerServerPtr->serve();
   };
-
+  vector<thread> dojob_thrd;
+  
   try {
     transport->open();
     registerClient.Register(me);
+    
+    dojob_thrd.push_back(thread(dojob_handler));
+
     while(wk.GetnRPC() != 0) {
       // continue accepting master rpc tasks
-      wk.DecrnRPC();
-      _lambda_StartDoJobServer();
-      wk.IncrJobs();
+      wk.SetnRPC(doJobServerPtr->GetnRPC());
+      wk.SetnJobs(doJobServePtr->GetnJobs());
+      usleep(10000);
     }
-    for(auto & thrd : service_thrds) {
+    // TODO: close DoJobServer
+    for(auto & thrd : dojob_thrd) {
       thrd.join();
     }
     transport->close();
