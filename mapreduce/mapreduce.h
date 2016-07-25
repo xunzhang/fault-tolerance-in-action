@@ -22,8 +22,6 @@
 #include "util.h"
 #include "chan.h"
 
-namespace mapreduce {
-
 using namespace ::apache::thrift;
 using namespace ::apache::thrift::protocol;
 using namespace ::apache::thrift::transport;
@@ -35,7 +33,9 @@ using std::thread;
 using cpp::channel;
 using std::mutex;
 using boost::shared_ptr;
-  
+ 
+namespace mapreduce {
+
 string MapName(const string & file, int indx) {
   string fileSuffix = mapreduce::strSplit(file, '/').back();
   return "mrtmp." + fileSuffix + "-" + std::to_string(indx);
@@ -141,7 +141,7 @@ class MapReduce {
         nReduce(nreduce),
         MasterAddr(master) {
     fileSuffix = mapreduce::strSplit(_file, '/').back();
-    startRegisterServer();
+    StartRegisterServer();
   }
 
   ~MapReduce() {
@@ -240,9 +240,9 @@ class MapReduce {
   }
 
  private:
-  void startRegisterServer() {
+  void StartRegisterServer() {
     auto register_handler = [&] () {
-      int port = str_split(masterAddr);
+      int port = std::stoi(mapreduce::strSplit(masterAddr, ':').back());
       shared_ptr<MapReduceServiceHandler> handler(new MapReduceServiceHandler(registerChan));
       shared_ptr<TProcessor> processor(new MapReduceServiceProcessor(handler))
       shared_ptr<TServerTransport> serverTransport(new TServerSocket(port));

@@ -1,4 +1,3 @@
-/*
 struct ShutdownReply {
   1:i32 Njobs,
   2:bool OK
@@ -14,16 +13,8 @@ struct DoJobArgs {
 struct DoJobReply {
   1:bool OK
 }
-*/
 
-service MapReduceService {
-  bool Register(1:string workerAddr),
-  //bool ShutDown(1:ShutdownReply res)
-}
-
-/*
 service WorkerService {
   bool Shutdown(1:ShutdownReply res),
   bool DoJob(1:DoJobArgs arg, 2:DoJobReply res)
 }
-*/
