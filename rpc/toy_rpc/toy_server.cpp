@@ -51,6 +51,8 @@ class divideHandler : virtual public divideIf {
     printf("sayh: .\n");
   }
 
+  void too() { std::cout << "too" << std::endl; }
+
  private:
   A obj;
 };
@@ -61,7 +63,9 @@ class ToyServer {
   ToyServer() {
     auto rpc_handler = [&] () {
       int port = 9090;
-      shared_ptr<divideHandler> handler(new divideHandler(obj));
+      handler_ptr = new divideHandler(obj);
+      //shared_ptr<divideHandler> handler(new divideHandler(obj));
+      shared_ptr<divideHandler> handler(handler_ptr);
       shared_ptr<TProcessor> processor(new divideProcessor(handler));
       shared_ptr<TServerTransport> serverTransport(new TServerSocket(port));
       shared_ptr<TTransportFactory> transportFactory(new TBufferedTransportFactory());
@@ -77,17 +81,20 @@ class ToyServer {
     for(auto & thrd : thrds) {
       thrd.join();
     }
+    delete handler_ptr;
     delete server_ptr;
   }
 
   void foo() {
     // do job in main thread...
+    handler_ptr->too();
     std::cout << "main thread job" << std::endl;
   }
 
  private:
   mutex mtx;
   std::vector<std::thread> thrds;
+  divideHandler *handler_ptr;
   TSimpleServer *server_ptr;
   A obj;
 }; // class ToyServer
